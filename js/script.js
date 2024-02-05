@@ -1,26 +1,16 @@
 document.addEventListener("DOMContentLoaded", function () {
+  const todos = [];
+  const RENDER_EVENT = "render-todo";
+  const SAVED_EVENT = "saved-todo";
+  const STORAGE_KEY = "TODO_APPS";
   const submitForm = document.getElementById("form");
+
   submitForm.addEventListener("submit", function (event) {
     event.preventDefault();
     addTodo();
+    document.getElementById("title").value = "";
+    document.getElementById("date").value = "";
   });
-
-  const todos = [];
-  const RENDER_EVENT = "render-todo";
-  function addTodo() {
-    const textTodo = document.getElementById("title").value;
-    const timestamp = document.getElementById("date").value;
-
-    const generateID = generateId();
-    const todoObject = generateTodoObject(
-      generateID,
-      textTodo,
-      timestamp,
-      false
-    );
-    todos.push(todoObject);
-    document.dispatchEvent(new Event(RENDER_EVENT));
-  }
 
   function generateId() {
     return +new Date();
@@ -35,23 +25,64 @@ document.addEventListener("DOMContentLoaded", function () {
     };
   }
 
-  document.addEventListener(RENDER_EVENT, function () {
-    // console.log(todos);
-    const uncompletedTODOList = document.getElementById("todos");
-    uncompletedTODOList.innerHTML = "";
-
-    const completedTODOList = document.getElementById("completed-todos");
-    completedTODOList.innerHTML = "";
-
+  function findTodo(todoId) {
+    console.log(todoId);
     for (const todoItem of todos) {
-      const todoElement = makeTodo(todoItem);
-      if (!todoItem.isCompleted) {
-        uncompletedTODOList.append(todoElement);
-      } else {
-        completedTODOList.append(todoElement);
+      if (todoItem.id === todoId) {
+        return todoItem;
       }
     }
-  });
+    return null;
+  }
+
+  function findTodoIndex(todoId) {
+    for (const index in todos) {
+      if (todos[index].id === todoId) {
+        return index;
+      }
+    }
+    return -1;
+  }
+
+  /**
+   * Fungsi ini digunakan untuk memeriksa apakah localStorage didukung oleh browser atau tidak
+   *
+   * @returns boolean
+   */
+  function isStorageExist() /* boolean */ {
+    if (typeof Storage === undefined) {
+      alert("Browser kamu tidak mendukung local storage");
+      return false;
+    }
+    return true;
+  }
+
+  /**
+   * Fungsi ini digunakan untuk menyimpan data ke localStorage
+   * berdasarkan KEY yang sudah ditetapkan sebelumnya.
+   */
+  function saveData() {
+    if (isStorageExist()) {
+      const parsed = JSON.stringify(todos);
+      localStorage.setItem(STORAGE_KEY, parsed);
+      document.dispatchEvent(new Event(SAVED_EVENT));
+    }
+  }
+
+  /**
+   * Fungsi ini digunakan untuk memuat data dari localStorage
+   * Dan memasukkan data hasil parsing ke variabel {@see todos}
+   */
+  function loadDataFromStorage() {
+    const serializedData = localStorage.getItem(STORAGE_KEY);
+    let data = JSON.parse(serializedData);
+
+    if (data !== null) {
+      for (const todo of data) {
+        todos.push(todo);
+      }
+    }
+  }
 
   function makeTodo(todoObject) {
     console.log(todoObject);
@@ -100,6 +131,22 @@ document.addEventListener("DOMContentLoaded", function () {
     return container;
   }
 
+  function addTodo() {
+    const textTodo = document.getElementById("title").value;
+    const timestamp = document.getElementById("date").value;
+
+    const generateID = generateId();
+    const todoObject = generateTodoObject(
+      generateID,
+      textTodo,
+      timestamp,
+      false
+    );
+    todos.push(todoObject);
+    document.dispatchEvent(new Event(RENDER_EVENT));
+    saveData();
+  }
+
   function addTaskToCompleted(todoId) {
     const todoTarget = findTodo(todoId);
 
@@ -107,16 +154,7 @@ document.addEventListener("DOMContentLoaded", function () {
 
     todoTarget.isCompleted = true;
     document.dispatchEvent(new Event(RENDER_EVENT));
-  }
-
-  function findTodo(todoId) {
-    console.log(todoId);
-    for (const todoItem of todos) {
-      if (todoItem.id === todoId) {
-        return todoItem;
-      }
-    }
-    return null;
+    saveData();
   }
 
   function removeTaskFromCompleted(todoId) {
@@ -126,6 +164,7 @@ document.addEventListener("DOMContentLoaded", function () {
 
     todos.splice(todoTarget, 1);
     document.dispatchEvent(new Event(RENDER_EVENT));
+    saveData();
   }
 
   function undoTaskFromCompleted(todoId) {
@@ -135,14 +174,33 @@ document.addEventListener("DOMContentLoaded", function () {
 
     todoTarget.isCompleted = false;
     document.dispatchEvent(new Event(RENDER_EVENT));
+    saveData();
   }
 
-  function findTodoIndex(todoId) {
-    for (const index in todos) {
-      if (todos[index].id === todoId) {
-        return index;
+  document.addEventListener(SAVED_EVENT, () => {
+    console.log(localStorage.getItem(STORAGE_KEY));
+  });
+
+  document.dispatchEvent(new Event(RENDER_EVENT));
+  if (isStorageExist()) {
+    loadDataFromStorage();
+  }
+
+  document.addEventListener(RENDER_EVENT, function () {
+    // console.log(todos);
+    const uncompletedTODOList = document.getElementById("todos");
+    uncompletedTODOList.innerHTML = "";
+
+    const completedTODOList = document.getElementById("completed-todos");
+    completedTODOList.innerHTML = "";
+
+    for (const todoItem of todos) {
+      const todoElement = makeTodo(todoItem);
+      if (!todoItem.isCompleted) {
+        uncompletedTODOList.append(todoElement);
+      } else {
+        completedTODOList.append(todoElement);
       }
     }
-    return -1;
-  }
+  });
 });
